@@ -1,0 +1,27 @@
+Hello time travellers!
+The point in time is 09042025, in case you forgot.
+
+Functionality working:
+- Logging in
+- Deleting users
+
+Functionality untested:
+- Federation
+
+Functionality not working (in order of priority):
+- Spaces
+- Permissions (blocked by spaces)
+- Rooms (blocked by spaces and permissions)
+- Sending and receiving messages in rooms (blocked by rooms and permissions)
+- Encryption in rooms (blocked by sending and receiving messages in rooms, rooms and permissions)
+- User-To-User key exchange
+- Direct messaging
+
+Functionality that could be improved upon:
+- Better federation separation
+
+Functionality that may not be implemented in the final product:
+- Revocation of certificates
+- Revocation of server keys
+- Changing of user passwords
+- Display names

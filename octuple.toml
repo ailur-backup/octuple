@@ -1,0 +1,26 @@
+# Welcome to the config file for fediping
+
+# Core configuration
+[core]
+# The default listner for the application in the format "ip:port"
+listener = "127.0.0.1:8080"
+# The front-facing URL for the application.
+domain = "localhost:8080"
+
+# Logging configuration
+[log]
+# The log level for the application
+level = "info"
+
+# Federation configuration
+[federation]
+# Whether to enable federation
+enabled = true
+# Wether to allow federation with servers over an insecure connection (not recommended for production usage, mainly for testing)
+allow_http = true
+# Federated room configuration
+[federation.rooms]
+# If true, allow federated users to join native rooms
+allow_join = true
+# If true, allow federated users to create native rooms
+allow_create = true

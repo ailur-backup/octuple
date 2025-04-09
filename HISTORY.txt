@@ -1,0 +1,248 @@
+16/03/2025
+
+I started to develop the backbone of the application. In order to do this, I used https://crates.io/ in order to browse
+through http frameworks. I found a framework called tide that appeared to be a good fit, being lightweight and easy to use.
+Looking through the documentation for tide, I borrowed code from the examples in order to make a simple initial application.
+
+I then needed a method to store data, so I finalised the use of SQLite, and looking through my options again on https://crates.io,
+I found r2d2 and r2d2_sqlite to be a good fit for my needs. I then implemented these into my application using the examples.
+
+Unfortunately, I found these were not thread safe, so I looked in the Rust Handbook (https://doc.rust-lang.org/book/) and found
+that I could use a OnceLock to make the connection pool thread safe. I implemented this into my application.
+
+For the cryptographic side of the application, I found the ed25519-dalek library to be a good fit for my needs, again from
+https://crates.io. I looked at the examples and finalised the use of PEM for the key storage format, as I have had prior
+experience with PEM due to my work on previous projects also using cryptography.
+
+After that, I needed a way to store configuration data, and the Rust Handbook recommended the config library. I implemented this
+into my application, and then I was ready to start developing the actual functionality of the application.
+
+I developed some basic cryptographic federating functionality, such as the key exchange process. Currently, 2 endpoints are
+implemented, being:
+- /api/v1/server/key : This endpoint is used to get the public key of a server.
+- /api/v1/server/push : This endpoint is used to tell another server that this server exists. The other server will then
+  call your key endpoint to get your public key, and add you to its list of known servers.
+
+To summarise, today I have demonstrated learning via:
+- Browsing through examples and adapting them to my needs
+- Using the Rust Handbook to find solutions to problems
+- Using https://crates.io to find libraries that fit my needs
+- Learnt the basics of the tide framework
+- Learnt the basics of the r2d2 and r2d2_sqlite libraries
+- Learnt the basics of the ed25519-dalek library
+- Learnt the basics of the config library
+- Learnt how to use OnceLock to make a connection pool thread safe
+
+I have had prior experience with:
+- Learnt how to use PEM for key storage
+
+The sources I have used today are:
+- https://crates.io/ : For finding libraries that fit my needs
+- https://doc.rust-lang.org/book/ : For finding various solutions to problems
+- https://docs.rs/ : For finding documentation on the tide, r2d2, r2d2_sqlite, ed25519-dalek and config libraries
+
+No Git snapshots exist at this point in time, as the application was basically a template with no real functionality.
+
+18/03/2025
+
+Today I have worked on the room functionality and increasing the modularity and reusability of the code. I have broken
+down many concepts such as users, rooms, messages, etc into their own structs and modules. I have also started on my
+implementation of rooms.
+
+I needed a way to efficiently verify credentials across multiple servers, so ideally it should be a stateless process.
+To do this, I used JSON Web Tokens (JWT) and the jsonwebtoken library from https://crates.io. I implemented this into my
+application and used the key exchange process from earlier to verify the JWTs.
+
+I created unique identifiers for rooms, users and messages using the format found on many federated platforms, being
+name@server for users and room:server for rooms. However, for messages, I used UUIDs as well, as messages have no easily
+identifiable unique identifier. I found the uuid library on https://crates.io and implemented this into my application.
+
+I then implemented the room functionality. To enable better configuration options, I added a new section to the config file
+that allows you to configure more fine-tuned control over the federation process.
+
+I also have finalised a name for the project: Charm (Charm Has A Ridiculous Meaning). To distinguish between the
+frontend and backend, the backend has been given the name of Octuple (being 8 in Latin, 8 being a lucky number in
+various cultures).
+
+I have implemented the following endpoints:
+- /api/v1/room/create : This endpoint is used to create a room.
+- /api/v1/room/join : This endpoint is used to join a room.
+
+To summarise, today I have demonstrated learning via:
+- Breaking down concepts into their own modules and structs
+- Using the jsonwebtoken library from https://crates.io
+- Using UUIDs for unique identifiers
+- Using the uuid library from https://crates.io
+- Implementing more fine-tuned control over the federation process
+
+I have had prior experience with:
+- Using JSON Web Tokens for stateless credential verification
+
+The sources I have used today are:
+- https://crates.io/ : For finding libraries that fit my needs
+- https://docs.rs/ : For finding documentation on the jsonwebtoken and uuid libraries
+
+No Git snapshots exist at this point in time, as the application was still in a very early stage and could not be used.
+
+05/04/2025
+
+Today I have worked on making the user signup a reality. I have not implemented any new endpoints, but I have
+tested and bugfixed the existing endpoints. Furthermore, I started work on a rudimentary web client which uses
+WebAssembly to run in the browser.
+
+I have used the reqwest library from https://crates.io to make HTTP requests from the browser. I have also used
+wasm-bindgen to bind the JavaScript and Rust code together. I have used the examples from the documentation to
+piece together a simple web client that can make requests to the backend.
+
+Because the WASM version of reqwest does not support the blocking feature, I have had to use the async version of reqwest.
+To accomplish this, I have used wasm-bindgen-futures in order to act as a runtime to run the async code in the browser.
+
+Since I was having some trouble continuing to use .expect() in the browser, as the WASM runtime does not support
+the panic!() macro, I have used the JavaScript alert() function to display errors to the user and replaced all instances
+of .expect() with .unwrap_or_else(|err| { alert(err.to_string()); panic!(); }) in order to display the error before
+panicking, so that the user can see what went wrong. The panic is still there in order to prevent the application from
+continuing to run in an invalid state.
+
+Since the deployment of the web app went beyond simply running cargo build, I have had to create a Makefile in order to
+build the project. Due to this, I also added the "make server" command to the Makefile, which runs a simple HTTP server
+on localhost to serve the built files. This is useful for testing the web client locally, when you don't want to set up
+a full static file server. For the HTTP server, I have selected the `httpserver` package built by me in an unrelated
+project since it is lightweight and has the same syntax as python's http.server module.
+
+To summarise, today I have demonstrated learning via:
+- Using the reqwest library to make HTTP requests from the browser
+- Using wasm-bindgen to bind the JavaScript and Rust code together
+- Using wasm-bindgen-futures to run async code in the browser
+- Using the JavaScript alert() function to display errors to the user
+- Using .unwrap_or_else() to display errors to the user before panicking
+- Using the async version of reqwest to make HTTP requests from the browser
+
+I have had prior experience with:
+- Using HTML and JavaScript to create the web client
+- Using WebAssembly as a whole, as I had dabbled with it in Go before
+- Using Makefiles to build projects
+- Using my own software to serve static files
+
+The source I have used today are:
+- https://crates.io/ : For finding reqwest and wasm-bindgen
+- https://docs.rs/ : For finding documentation on the ed25519-dalek and reqwest libraries
+- https://rustwasm.github.io/docs/wasm-bindgen/ : For finding documentation on wasm-bindgen
+- https://rustwasm.github.io/docs/wasm-bindgen-futures/ : For finding documentation on wasm-bindgen-futures
+
+No Git snapshots exist at this point in time, as the application was still in a very early stage and could not be used.
+
+06/04/2025
+
+Today I further tested the login system and have gotten to the point where enough bugs are fixed that I can successfully
+log in and receive a JWT. I have realised that my implementation of the Server struct was not correct, as I have included
+the protocol as part of the server name. This is bad, because you are intended to share cross-server identifiers without
+the protocol (e.g #room:example.com, not #room:https://example.com).
+
+However, removing the protocol causes a new problem: now we do not know if HTTP or HTTPS should be used. To solve this,
+I have created the /api/v1/server/ping endpoint, which will always return a 200 OK response, as well as the timestamp of
+when the request was received (in case this information may be useful). I have created a new function in the Server struct
+which will ping the server specified on both HTTPS and HTTP (with the HTTP server being the fallback, and disable-able
+via the config file). This allows us to find out the correct protocol to use during federation without it being a part
+of identifiers.
+
+I have implemented the following endpoints:
+- /api/v1/server/ping : This endpoint is used to ping a server and get the timestamp of when the request was received.
+
+To summarise, today I have demonstrated learning via:
+- Fixing bugs in the login system
+- Fixing bugs in the server struct
+- Creating a new endpoint to ping a server and get the timestamp of when the request was received
+- Allowing the server struct to automatically determine the correct protocol to use during federation
+
+Today I have not used any prior knowledge nor any further sources.
+
+No Git snapshots exist at this point in time, as I have a suspicion that I may have encountered a flaw with how I am
+using JWTs, and I want to investigate this further, and not to commit potentially insecure code.
+
+08/04/2025
+
+I have come across a roadblock in the development of the application, primarily related to my earlier use of JWTs.
+I realise that a malicious server could easily impersonate you if the JWT was the only thing used to verify your identity.
+
+To solve this, I am instead going to implement my own custom authentication system which works like this:
+- When you log in, the server sends you a signature of your public key, signed with the server's private key. This
+  is known as a certificate. The purpose of this certificate is to verify that on the authority of this server (the
+  home server), this public key represents this user and all things signed with this public key are from this user.
+- When you send a request to another server, you include in the request the certificate and the signature of the
+  request, signed with your private key. The purpose of this is to verify that the request is from you, the user, as
+  well as to verify that you are authenticated by the home server.
+- This sets up a stateless chain of trust, similar to how TLS (better known as HTTPS) works. You are being trusted by
+  your home server, which tells servers that trust it to trust you as well. In TLS, you are being trusted by a root CA,
+  which a client trusts, thus trusting you, as you are trusted by the root CA.
+
+To make this more secure, I have also in the certificate added an expiration date in order to make sure that any future
+changes of password are recognised later on, so that a bad actor with your old key cannot impersonate you once you
+change your password.
+
+Come to think of it, it's probably best if I describe exactly the role of everything in the application:
+- The user's password is directly related to the users private key. If either are compromised, the user is fully compromised.
+  and the only way to prevent further access is to change the password and cross your fingers for an hour until the
+  certificate expires. This is subject to change in the future, an (optional) revocation system may be implemented.
+- The user's username serves as a unique identifier across the entire application. It is used (hashed under blake3) as
+  the salt for the password hashing, in order to make sure rainbow tables cannot be generated for every possible key.
+- The user's public key is used to verify the user's identity. It is the only cryptographically identifiable thing about
+  the user, which is why private key leakage is so devastating. It should be used for all authentication and proof-of-identity
+  and is heavily used throughout almost every aspect of the application from establishing ECDH communication to signing
+  requests.
+- The server is, as very much intended, not playing a significant part in the actual cryptography. Once the user obtains
+  it's certificate from the server, it doesn't even need to communicate with the server again, as the federation protocol
+  asks users to communicate directly with the server it's federating with. The only other role a server really has is
+  acting as a room and user directory.
+- A room, or in equivalent Discord terms, a channel, is a place where users can communicate with each other. It is
+  identified by #room@space:server. Each room contains messages, which may or may not be encrypted depending on the
+  type of room.
+- A space, or in equivalent Discord terms, a guild or server, is a collection of rooms. It is identified by
+  @space:server. Each space contains rooms, which may or may not be encrypted depending on the type of space.
+
+This functionality will be implemented over the next few days.
+
+To summarise, today I have demonstrated learning via:
+- Realising the flaws in my previous implementation of JWTs
+- Implementing a new authentication system
+- Using chains-of-trust to verify identities statelessly
+
+No snapshots exist at this point in time because due to the rework the code is once again in a broken state.
+
+09/04/2025
+
+I have finished the new authentication system and have implemented it into the application. I have also made the decision
+of getting rid of JWTs entirely, which meant getting rid of the login challenge endpoint. Instead of signing the challenge,
+I made it sign the default request, which is simply one byte: 0x00. This is used because due to how the new authentication
+system works, something must be signed in order to verify the user, the simplest thing being 0x00. This is also used for
+endpoints where no request body is needed, but authentication is still required, such as /api/v1/user/delete.
+
+I have overhauled the room endpoints to add support for spaces, as well as the new authentication system, so they are
+practically rewritten. Spaces are yet to be implemented, but the structs are ready to be put into endpoints.
+
+For better code-sharing between the frontend and backend, I have moved the structs into a new library called libcharm.
+This library is used for all the structs and enums that are shared between the frontend and backend, as well as serde
+helpers for serialising objects without native serde support. I used traits in order to add functions to structs, as
+some functionality is only needed in the frontend or backend, which was a new experience for me. The UUID library also
+required a feature to be turned on to work in the WASM environment, so I added a feature to libcharm to enable WASM
+support.
+
+I have implemented no new endpoints, but removed and tweaked many of the existing ones. The following endpoints have been
+removed or have rewritten functionality:
+- /api/v1/room/*: The room endpoints have been rewritten to support spaces and the new authentication system.
+- /api/v1/user/challenge: This endpoint has been removed in favour of the new authentication system.
+- /api/v1/user/login: This endpoint has been rewritten to support the new authentication system.
+
+To summarise, today I have demonstrated learning via:
+- Implementing a new authentication system
+- Overhauling the room endpoints to support spaces and the new authentication system
+- Creating rust libraries to share code between the frontend and backend
+- Using traits to add functionality to structs
+- Using features in libraries to enable or disable functionality
+
+The sources I have used today are:
+- https://doc.rust-lang.org/book/ch19-03-advanced-traits.html : For learning about traits
+
+Today I have not used any prior knowledge.
+
+A snapshot of the code at this point in time is available via the Git tag DEV-09042025 on both the frontend, backend and
+library. FUNCTIONALITY.txt in the root of the repository in this snapshot explains in more detail what is and isn't working.
