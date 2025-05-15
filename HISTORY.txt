@@ -246,3 +246,44 @@ Today I have not used any prior knowledge.
 
 A snapshot of the code at this point in time is available via the Git tag DEV-09042025 on both the frontend, backend and
 library. FUNCTIONALITY.txt in the root of the repository in this snapshot explains in more detail what is and isn't working.
+
+15/05/2025
+
+As the deadline is approaching, I have decided to take a review of all the neccessary functionality that needs to be
+implemented in order to make the application usable. I have decided to focus on the following functionality:
+- Rooms
+- Chatting
+- Frontend
+
+However, the following features, while they will be worked on, will have a lower priority:
+- Permissions
+- Spaces
+- Federation
+- Encryption
+
+In order to speed up the project development, I have decided to make the following changes:
+- The frontend will be written in JavaScript instead of Rust, as the Rust WASM bindings have been significantly slower
+  to develop than I had anticipated. This will allow me to focus on the backend and make the application usable.
+- I will, for now, comment out all authentication mechanisms, in order to minimise complexity in the JavaScript frontend
+  for the beta release. This will be re-introduced later on, but perhaps rethought to be simpler and less dependent on
+  serde.
+- Whilst hopefully I can get federation to work, this is no longer a priority.
+- Spaces will be disabled for now, and re-introduced later on.
+
+I have disabled the following endpoints:
+- /api/v1/space/*: The space endpoints have been disabled for now, as spaces are not implemented yet.
+
+I have implemented the following endpoints:
+- /api/v1/room/*: The room endpoints have been created, but are not in a form that can be delivered in production. Instead,
+  they will only be used in the beta release.
+- /api/v1/message/*: The message endpoints have been created, but are not in a form that can be delivered in production. Instead,
+  they will only be used in the beta release.
+
+To summarise, today I have demonstrated learning via:
+- Reviewing the functionality of the application to deliver a demonstration
+- Switching the frontend to JavaScript
+
+Today I have not used any prior knowledge.
+
+A snapshot of the code at this point in time is available via the Git tag DEV-15052025 on both the frontend, backend and
+library. FUNCTIONALITY.txt in the root of the repository in this snapshot explains in more detail what is and isn't working.

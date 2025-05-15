@@ -3,22 +3,25 @@ The point in time is 09042025, in case you forgot.
 
 Functionality working:
 - Logging in
-- Deleting users
 
 Functionality untested:
 - Federation
 
-Functionality not working (in order of priority):
-- Spaces
-- Permissions (blocked by spaces)
-- Rooms (blocked by spaces and permissions)
-- Sending and receiving messages in rooms (blocked by rooms and permissions)
-- Encryption in rooms (blocked by sending and receiving messages in rooms, rooms and permissions)
-- User-To-User key exchange
-- Direct messaging
+Functionality that is working in an unsecure beta way:
+- Rooms (proper functionality blocked by spaces, permissions, and secure requests)
+- Sending and receiving messages in rooms (proper functionality blocked by rooms)
 
 Functionality that could be improved upon:
 - Better federation separation
+
+Functionality moved to the future:
+- Secure requests
+- Spaces (blocked by secure requests)
+- Permissions (blocked by spaces)
+- Encryption in rooms (blocked by sending and receiving messages in rooms, rooms and permissions)
+- User-To-User key exchange
+- Direct messaging
+- Deleting users
 
 Functionality that may not be implemented in the final product:
 - Revocation of certificates

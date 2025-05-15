@@ -1,10 +1,6 @@
-use crate::handlers::users::OctupleCertificate;
 use crate::settings::{get_bool, get_string};
-use ed25519_dalek::{Signature, VerifyingKey};
-use libcharm::error::Error;
 use libcharm::request::{Request, Response};
 use serde::Serialize;
-use signature::Verifier;
 use tide::http::headers::HeaderValue;
 use tide::security::Origin;
 
@@ -12,6 +8,7 @@ pub mod server;
 mod rooms;
 mod users;
 mod spaces;
+mod messages;
 
 trait OctupleRequest {
     fn verify(&self) -> Result<(), Box<dyn std::error::Error>>;
@@ -19,12 +16,16 @@ trait OctupleRequest {
 
 impl<T: Serialize> OctupleRequest for Request<T> {
     fn verify(&self) -> Result<(), Box<dyn std::error::Error>> {
+        /*
         self.certificate.verify().map_err(|e|
             Box::new(Error::new(&format!("Failed to verify certificate: {}", e))) as Box<dyn std::error::Error>
         )?;
         let data = rmp_serde::to_vec(&self.data).expect("Failed to serialize data");
         let key = VerifyingKey::from_bytes(&self.certificate.components.key)?;
         key.verify(data.as_slice(), &Signature::from(self.signature)).map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
+        */
+        // Authentication is disabled for the beta release
+        Ok(())
     }
 }
 
@@ -54,6 +55,9 @@ pub async fn init() -> tide::Result<()> {
     }
     rooms::init(&mut app);
     users::init(&mut app);
+    messages::init(&mut app);
+    // DISABLED FOR BETA RELEASE, SEE HISTORY.TXT
+    // spaces::init(&mut app);
     app.listen(get_string("core.listener")).await?;
     Ok(())
 }

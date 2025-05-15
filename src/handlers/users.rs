@@ -8,7 +8,7 @@ use libcharm::endpoints::user::{Create, Login};
 use libcharm::request::{BlankRequest, Request};
 use libcharm::user::{Certificate, CertificateComponents};
 use rusqlite::Error::QueryReturnedNoRows;
-use signature::{Keypair, Signer, Verifier};
+use signature::{Signer, Verifier};
 use std::error;
 
 pub trait OctupleCertificateComponents {
@@ -37,7 +37,7 @@ impl OctupleCertificate for Certificate {
 
 pub fn init(app: &mut tide::Server<()>) {
     app.at("/api/v1/users/create").post(create);
-    app.at("/api/v1/users/delete").post(delete);
+//    app.at("/api/v1/users/delete").post(delete);
     app.at("/api/v1/users/login").post(login);
 }
 
@@ -59,6 +59,7 @@ pub async fn create(mut req: tide::Request<()>) -> tide::Result {
     Ok(new_response("User created", 201))
 }
 
+/*
 pub async fn delete(mut req: tide::Request<()>) -> tide::Result {
     let request: Request<BlankRequest> = req.body_json().await?;
     let error = request.verify();
@@ -80,6 +81,7 @@ pub async fn delete(mut req: tide::Request<()>) -> tide::Result {
     }
     Ok(new_response("User deleted", 200))
 }
+*/
 
 pub async fn login(mut req: tide::Request<()>) -> tide::Result {
     let login: Login = req.body_json().await?;

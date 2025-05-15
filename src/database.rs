@@ -36,31 +36,20 @@ pub fn init() {
         .execute(
             "CREATE TABLE IF NOT EXISTS space (
                 name TEXT PRIMARY KEY NOT NULL,
-                public BOOLEAN NOT NULL
+                public BOOLEAN NOT NULL,
+                hierarchy TEXT NOT NULL
             )",
             [],
         )
         .expect("Failed to create space table");
     init_connection
-        .execute(
-            "CREATE TABLE IF NOT EXISTS members (
-                space TEXT NOT NULL,
-                user TEXT NOT NULL,
-                PRIMARY KEY (space, user),
-                FOREIGN KEY (space) REFERENCES space(name)
-            )",
-            [],
-        )
-        .expect("Failed to create members table");
-    init_connection
         .execute("CREATE TABLE IF NOT EXISTS roles (
-            name TEXT NOT NULL,
-            color BLOB NOT NULL,
-            display BOOLEAN NOT NULL,
-            space TEXT NOT NULL,
-            PRIMARY KEY (name, space),
-            FOREIGN KEY (space) REFERENCES space(name)
-        )",
+                name TEXT NOT NULL,
+                color BLOB NOT NULL,
+                display BOOLEAN NOT NULL,
+                space TEXT NOT NULL,
+                PRIMARY KEY (name, space)
+            )",
          [],
         )
         .expect("Failed to create roles table");
@@ -70,22 +59,22 @@ pub fn init() {
                 role TEXT NOT NULL,
                 space TEXT NOT NULL,
                 permission INTEGER NOT NULL,
-                PRIMARY KEY (role, space, permission),
-                FOREIGN KEY (role) REFERENCES roles(name),
-                FOREIGN KEY (space) REFERENCES space(name)
+                PRIMARY KEY (role, space, permission)
             )",
             [],
         )
         .expect("Failed to create permissions table");
     init_connection
+        // SOME OPTIONS ARE DISABLED FOR THE BETA RELEASE
         .execute(
             "CREATE TABLE IF NOT EXISTS rooms (
-                name TEXT NOT NULL,
+                name TEXT NOT NULL
+                /*
                 federated BOOLEAN NOT NULL,
                 encrypted BOOLEAN NOT NULL,
                 space TEXT NOT NULL,
-                PRIMARY KEY (name, space),
-                FOREIGN KEY (space) REFERENCES space(name)
+                PRIMARY KEY (name, space)
+                */
             )",
             [],
         )
@@ -96,21 +85,47 @@ pub fn init() {
                 role TEXT NOT NULL,
                 room TEXT NOT NULL,
                 permission INTEGER NOT NULL,
-                PRIMARY KEY (role, room, permission),
-                FOREIGN KEY (role) REFERENCES roles(name),
-                FOREIGN KEY (room) REFERENCES rooms(name)
+                PRIMARY KEY (role, room, permission)
             )",
             [],
         )
         .expect("Failed to create permissions table");
+    init_connection
+        // SOME OPTIONS ARE CHANGED FOR THE BETA RELEASE
+        .execute(
+            "CREATE TABLE IF NOT EXISTS members (
+                /*
+                space TEXT NOT NULL,
+                */
+                room TEXT NOT NULL,
+                user TEXT NOT NULL,
+                /*
+                PRIMARY KEY (space, user),
+                */
+                PRIMARY KEY (room, user)
+            )",
+            [],
+        )
+        .expect("Failed to create members table");
+    init_connection
+        .execute(
+            "CREATE TABLE IF NOT EXISTS member_roles (
+                space TEXT NOT NULL,
+                user TEXT NOT NULL,
+                role TEXT NOT NULL,
+                PRIMARY KEY (space, user, role)
+            )",
+            [],
+        )
+        .expect("Failed to create member roles table");
     init_connection
         .execute(
             "CREATE TABLE IF NOT EXISTS messages (
                 id BLOB NOT NULL,
                 room TEXT NOT NULL,
                 sender TEXT NOT NULL,
-                PRIMARY KEY (id, room),
-                FOREIGN KEY (room) REFERENCES rooms(name)
+                content TEXT NOT NULL,
+                PRIMARY KEY (id, room)
             )",
             [],
         )
