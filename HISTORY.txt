@@ -287,3 +287,33 @@ Today I have not used any prior knowledge.
 
 A snapshot of the code at this point in time is available via the Git tag DEV-15052025 on both the frontend, backend and
 library. FUNCTIONALITY.txt in the root of the repository in this snapshot explains in more detail what is and isn't working.
+
+22/05/2025
+
+I have started writing the frontend. Due to my new switch to JavaScript, I have decided to use NPM to manage the dependencies
+of the frontend. Because of this, I am using Webpack to bundle the frontend into proper JavaScript files (which is needed
+to use TypeScript or import modules). Since I have written a popup window library in the past (called bubblepop), I have
+decided to reuse that library for the frontend.
+
+Since I have had lots of experience with CSS and HTML development, I do not feel like they would be of note in this
+document. Most of the frontend is raw CSS/HTML, and the TypeScript is used only when necessary (this is good practice
+as it tends to allow for better performance). I did not use any external frameworks, because they often add unnecessary
+complexity when I already have a good understanding of the underlying technologies.
+
+After implementing the JavaScript, I realise it may be easier than I thought to get authentication working in the frontend.
+As such, I may enable it in the future (but I shall keep it disabled for now until the product is fully functional).
+
+I have not implemented any new endpoints (though I have fixed bugs in the existing ones).
+
+Today I have not demonstrated any learning, other than bug-fixing the rust code, as I have had lots of experience
+with all the technologies I have used.
+
+I have used a lot of prior knowledge, primarily from my experience with HTML/CSS/JavaScript development.
+
+The sources I have used today are:
+- https://www.npmjs.com/ : For finding libraries that fit my needs
+- https://webpack.js.org/ : For finding documentation on Webpack
+- https://developer.mozilla.org/ : For documentation on HTML/CSS/JavaScript
+
+A snapshot of the code at this point in time is available via the Git tag DEV-22052025 on both the frontend, backend and
+library. FUNCTIONALITY.txt in the root of the repository in this snapshot explains in more detail what is and isn't working.

@@ -1,11 +1,10 @@
 use crate::database::get_connection;
 use crate::handlers::server::OctupleServer;
-use crate::handlers::{new_response, new_response_string, OctupleRequest};
+use crate::handlers::new_response;
 use crate::key::SIGNING_KEY;
 use ed25519_dalek::ed25519::SignatureBytes;
 use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 use libcharm::endpoints::user::{Create, Login};
-use libcharm::request::{BlankRequest, Request};
 use libcharm::user::{Certificate, CertificateComponents};
 use rusqlite::Error::QueryReturnedNoRows;
 use signature::{Signer, Verifier};

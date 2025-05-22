@@ -1,6 +1,6 @@
 use crate::database::get_connection;
 use crate::handlers::OctupleRequest;
-use crate::handlers::{new_response, new_response_string};
+use crate::handlers::{new_response};
 use libcharm::message::Message;
 use libcharm::request::Request;
 use libcharm::room::Room;
@@ -24,8 +24,8 @@ pub async fn list(mut req: tide::Request<()>) -> tide::Result {
             sender: User::from_string(&*row.get::<_, String>(2)?),
         })
     })?;
-    Ok(new_response_string(
-        serde_json::to_string(&message_iter.collect::<Result<Vec<_>, rusqlite::Error>>()?)?,
+    Ok(new_response(
+        &message_iter.collect::<Result<Vec<_>, rusqlite::Error>>()?,
         200,
     ))
 }
@@ -40,7 +40,7 @@ pub async fn send(mut req: tide::Request<()>) -> tide::Result {
     let result = connection.execute(
         "INSERT INTO messages (id, content, room, sender) VALUES (?, ?, ?, ?);",
         (
-            uuid::Uuid::new_v4().as_bytes(),
+            Uuid::new_v4().as_bytes(),
             request.data.content,
             request.data.room.name.clone(),
             request.data.sender.to_string(),
@@ -58,6 +58,6 @@ pub async fn send(mut req: tide::Request<()>) -> tide::Result {
 }
 
 pub fn init(app: &mut tide::Server<()>) {
-    app.at("/api/v1/message/list").post(list);
-    app.at("/api/v1/message/send").post(send);
+    app.at("/api/v1/messages/list").post(list);
+    app.at("/api/v1/messages/send").post(send);
 }

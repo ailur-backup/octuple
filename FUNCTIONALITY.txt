@@ -7,6 +7,9 @@ Functionality working:
 Functionality untested:
 - Federation
 
+Functionality being worked on:
+- Frontend
+
 Functionality that is working in an unsecure beta way:
 - Rooms (proper functionality blocked by spaces, permissions, and secure requests)
 - Sending and receiving messages in rooms (proper functionality blocked by rooms)
@@ -15,13 +18,14 @@ Functionality that could be improved upon:
 - Better federation separation
 
 Functionality moved to the future:
-- Secure requests
+- Secure requests (blocked by frontend)
 - Spaces (blocked by secure requests)
 - Permissions (blocked by spaces)
 - Encryption in rooms (blocked by sending and receiving messages in rooms, rooms and permissions)
 - User-To-User key exchange
 - Direct messaging
 - Deleting users
+- User profiles and avatars
 
 Functionality that may not be implemented in the final product:
 - Revocation of certificates

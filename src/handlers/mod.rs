@@ -29,14 +29,10 @@ impl<T: Serialize> OctupleRequest for Request<T> {
     }
 }
 
-pub fn new_response(message: &str, status: u16) -> tide::Response {
-    new_response_string(message.to_string(), status)
-}
-
-pub fn new_response_string(message: String, status: u16) -> tide::Response {
+pub fn new_response<T: Serialize>(data: T, status: u16) -> tide::Response {
     let mut response = tide::Response::new(status);
-    response.set_body(tide::Body::from_json(&Response {
-        message,
+    response.set_body(tide::Body::from_json(&Response{
+        data,
         status,
     }).expect("Failed to create response"));
     response

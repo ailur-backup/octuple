@@ -1,5 +1,5 @@
 use crate::database::get_connection;
-use crate::handlers::{new_response, new_response_string, OctupleRequest};
+use crate::handlers::{new_response, OctupleRequest};
 use libcharm::request::{BlankRequest, Request};
 use libcharm::room::{Room};
 use rusqlite::{Connection, Error};
@@ -59,7 +59,7 @@ pub async fn create(mut req: tide::Request<()>) -> tide::Result {
     let request: Request<String> = req.body_json().await?;
     let error = request.verify();
     if error.is_err() {
-        return Ok(new_response_string(format!("Invalid signature: {}", error.err().unwrap()), 403))
+        return Ok(new_response(format!("Invalid signature: {}", error.err().unwrap()), 403))
     }
     let connection = get_connection();
     let result = connection.execute(
@@ -82,7 +82,7 @@ pub async fn delete(mut req: tide::Request<()>) -> tide::Result {
     let request: Request<String> = req.body_json().await?;
     let error = request.verify();
     if error.is_err() {
-        return Ok(new_response_string(format!("Invalid signature: {}", error.err().unwrap()), 403))
+        return Ok(new_response(format!("Invalid signature: {}", error.err().unwrap()), 403))
     }
     let connection = get_connection();
     let result = connection.execute(
@@ -104,7 +104,7 @@ pub async fn get(mut req: tide::Request<()>) -> tide::Result {
     let request: Request<String> = req.body_json().await?;
     let error = request.verify();
     if error.is_err() {
-        return Ok(new_response_string(format!("Invalid signature: {}", error.err().unwrap()), 403))
+        return Ok(new_response(format!("Invalid signature: {}", error.err().unwrap()), 403))
     }
     let connection = get_connection();
     let result = connection.query_row(
@@ -127,7 +127,7 @@ pub async fn list(mut req: tide::Request<()>) -> tide::Result {
     let request: Request<BlankRequest> = req.body_json().await?;
     let error = request.verify();
     if error.is_err() {
-        return Ok(new_response_string(format!("Invalid signature: {}", error.err().unwrap()), 403))
+        return Ok(new_response(format!("Invalid signature: {}", error.err().unwrap()), 403))
     }
     let connection = get_connection();
     let mut stmt = connection.prepare("SELECT name FROM rooms;")?;
@@ -140,5 +140,5 @@ pub async fn list(mut req: tide::Request<()>) -> tide::Result {
     for room in room_iter {
         rooms.push(room?);
     }
-    Ok(new_response_string(serde_json::to_string(&rooms)?, 200))
+    Ok(new_response(&rooms, 200))
 }
