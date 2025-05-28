@@ -10,7 +10,7 @@ domain = "localhost:8080"
 # Logging configuration
 [log]
 # The log level for the application
-level = "info"
+level = "trace"
 
 # Federation configuration
 [federation]

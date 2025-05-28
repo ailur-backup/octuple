@@ -317,3 +317,40 @@ The sources I have used today are:
 
 A snapshot of the code at this point in time is available via the Git tag DEV-22052025 on both the frontend, backend and
 library. FUNCTIONALITY.txt in the root of the repository in this snapshot explains in more detail what is and isn't working.
+
+28/05/2025
+
+// Unoffical summary: I brought back authentication of users (but no room security yet), switched from tide
+to axum (async-std is deprecated) and used websockets to allow for rooms to be real-time.
+
+I have brought back the authentication of users, but not yet implemented room security. I have also switched from the
+tide framework to the axum framework, as tide relies on the deprecated async-std library (and seems to be mostly
+unmaintained). This change was made on the advice of a friend, who is more experienced with Rust than I am, and claimed
+that tokio and axum are much better for production use.
+
+I have also implemented the use of websockets to allow for real-time communication in rooms. This allows for users to
+send and receive messages in real-time, without having to refresh the page. The websockets are implemented using
+tokio's subscription system, which allows for multiple users to be subscribed to the same room and receive messages,
+with the server sending the messages when the /api/v1/messages/send endpoint is called.
+
+I have implemented the following endpoints:
+- /api/v1/messages/listen : This endpoint opens a websocket which allows for live message updates in rooms.
+
+To summarise, today I have demonstrated learning via:
+- Bringing back the authentication of users
+- Switching from the tide framework to the axum framework
+- Implementing websockets to allow for real-time communication in rooms
+- Using tokio's subscription system for cross-thread communication
+
+I have had prior experience with:
+- Using websockets for real-time communication
+
+The sources I have used today are:
+- https://docs.rs/axum/ : For finding documentation on the axum framework
+- https://github.com/axum-framework/axum : For finding examples on how to use axum
+- https://docs.rs/tokio/ : For finding documentation on the tokio library
+- https://docs.rs/tokio-tungstenite/ : For finding documentation on the tokio-tungstenite library
+- @ofluffy on Discord: For advice on switching from tide to axum as well as managing quirks in tokio
+
+A snapshot of the code at this point in time is available via the Git tag DEV-28052025 on both the frontend, backend and
+library. FUNCTIONALITY.txt in the root of the repository in this snapshot explains in more detail what is and isn't working.

@@ -3,6 +3,7 @@ The point in time is 09042025, in case you forgot.
 
 Functionality working:
 - Logging in
+- Secure requests
 
 Functionality untested:
 - Federation
@@ -11,15 +12,14 @@ Functionality being worked on:
 - Frontend
 
 Functionality that is working in an unsecure beta way:
-- Rooms (proper functionality blocked by spaces, permissions, and secure requests)
+- Rooms (proper functionality blocked by spaces and permissions)
 - Sending and receiving messages in rooms (proper functionality blocked by rooms)
 
 Functionality that could be improved upon:
 - Better federation separation
 
 Functionality moved to the future:
-- Secure requests (blocked by frontend)
-- Spaces (blocked by secure requests)
+- Spaces
 - Permissions (blocked by spaces)
 - Encryption in rooms (blocked by sending and receiving messages in rooms, rooms and permissions)
 - User-To-User key exchange
@@ -32,3 +32,4 @@ Functionality that may not be implemented in the final product:
 - Revocation of server keys
 - Changing of user passwords
 - Display names
+- Profile pictures

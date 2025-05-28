@@ -1,8 +1,20 @@
+use std::error::Error;
 use crate::settings::{get_bool, get_string};
+use axum::http::{StatusCode};
+use axum::response::Html;
+use axum::routing::get;
+use axum::{Json, Router};
+use ed25519_dalek::{Signature, VerifyingKey};
 use libcharm::request::{Request, Response};
+use reqwest::Method;
 use serde::Serialize;
-use tide::http::headers::HeaderValue;
-use tide::security::Origin;
+use tokio::net::TcpListener;
+use tower_http::cors::{Any, CorsLayer};
+use tower_http::trace::TraceLayer;
+use log::info;
+use signature::Verifier;
+use tower::ServiceBuilder;
+use crate::handlers::users::OctupleCertificate;
 
 pub mod server;
 mod rooms;
@@ -11,56 +23,52 @@ mod spaces;
 mod messages;
 
 trait OctupleRequest {
-    fn verify(&self) -> Result<(), Box<dyn std::error::Error>>;
+    async fn verify(&self) -> Result<(), Box<dyn Error + Send + Sync>>;
 }
 
 impl<T: Serialize> OctupleRequest for Request<T> {
-    fn verify(&self) -> Result<(), Box<dyn std::error::Error>> {
-        /*
-        self.certificate.verify().map_err(|e|
-            Box::new(Error::new(&format!("Failed to verify certificate: {}", e))) as Box<dyn std::error::Error>
+    async fn verify(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+        self.certificate.verify().await.map_err(|e|
+            Box::new(libcharm::error::Error::new(&format!("Failed to verify certificate: {}", e))) as Box<dyn Error + Send + Sync>
         )?;
-        let data = rmp_serde::to_vec(&self.data).expect("Failed to serialize data");
+        let data = serde_json::to_vec(&self.data)
+            .map_err(|e| Box::new(libcharm::error::Error::new(&format!("Failed to serialize data: {}", e))) as Box<dyn Error + Send + Sync>)?;
         let key = VerifyingKey::from_bytes(&self.certificate.components.key)?;
-        key.verify(data.as_slice(), &Signature::from(self.signature)).map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
-        */
-        // Authentication is disabled for the beta release
+        key.verify(data.as_slice(), &Signature::from(self.signature)).map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
         Ok(())
     }
 }
 
-pub fn new_response<T: Serialize>(data: T, status: u16) -> tide::Response {
-    let mut response = tide::Response::new(status);
-    response.set_body(tide::Body::from_json(&Response{
+pub fn new_response<T: Serialize>(data: T, status: u16) -> (StatusCode, Json<Response<T>>) {
+    (StatusCode::from_u16(status).unwrap(), Json::from(Response {
         data,
         status,
-    }).expect("Failed to create response"));
-    response
+    }))
 }
 
-pub async fn init() -> tide::Result<()> {
-    let mut app = tide::new();
-    // Add CORS headers
-    app.with(tide::security::CorsMiddleware::new()
-        .allow_methods("GET, POST, OPTIONS".parse::<HeaderValue>()?)
-        .allow_origin(Origin::from("*"))
-        .allow_credentials(false));
-    app.at("/").get(welcome);
+pub async fn init() {
+    info!("Initializing Octuple server");
+    let mut app = Router::new()
+        .route("/", get(welcome));
     if get_bool("federation.enabled") {
-        server::init(&mut app);
+        app = server::init(app);
     }
-    rooms::init(&mut app);
-    users::init(&mut app);
-    messages::init(&mut app);
+    app = rooms::init(app);
+    app = users::init(app);
+    app = messages::init(app);
     // DISABLED FOR BETA RELEASE, SEE HISTORY.TXT
-    // spaces::init(&mut app);
-    app.listen(get_string("core.listener")).await?;
-    Ok(())
+    // app = spaces::init(app);
+    info!("All handlers initialized, setting up middleware");
+    app = app.layer(
+        ServiceBuilder::new()
+            .layer(TraceLayer::new_for_http())
+            .layer(CorsLayer::new().allow_origin(Any).allow_methods([Method::GET, Method::POST, Method::OPTIONS]))
+    );
+    info!("Starting server on {}", get_string("core.listener"));
+    let listener = TcpListener::bind(get_string("core.listener")).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
 
-pub async fn welcome(_req: tide::Request<()>) -> tide::Result {
-    let mut response = tide::Response::new(200);
-    response.set_body(tide::Body::from_string(include_str!("welcome.html").parse()?));
-    response.set_content_type("text/html");
-    Ok(response)
+pub async fn welcome() -> Html<&'static str> {
+    Html(include_str!("welcome.html"))
 }

@@ -1,8 +1,14 @@
 use crate::database::get_connection;
 use crate::handlers::{new_response, OctupleRequest};
-use libcharm::request::{BlankRequest, Request};
-use libcharm::room::{Room};
-use rusqlite::{Connection, Error};
+use axum::{Json, Router};
+use axum::http::StatusCode;
+use libcharm::request::{BlankRequest, Request, Response};
+use libcharm::room::Room;
+use log::info;
+use r2d2_sqlite::rusqlite;
+use r2d2_sqlite::rusqlite::{Connection, Error};
+use r2d2_sqlite::rusqlite::ErrorCode::ConstraintViolation;
+use serde_json::{json, Value};
 
 pub trait OctupleRoom {
     // CREATE IS TEMPORARY FOR THE BETA RELEASE; IT WILL BE REMOVED
@@ -48,18 +54,19 @@ impl OctupleRoom for Room {
     }
 }
 
-pub fn init(app: &mut tide::Server<()>) {
-    app.at("/api/v1/rooms/create").post(create);
-    app.at("/api/v1/rooms/delete").post(delete);
-    app.at("/api/v1/rooms/get").post(get);
-    app.at("/api/v1/rooms/list").post(list);
+pub fn init(app: Router) -> Router {
+    info!("Initializing rooms handlers");
+    app
+        .route("/api/v1/rooms/create", axum::routing::post(create))
+        .route("/api/v1/rooms/delete", axum::routing::post(delete))
+        .route("/api/v1/rooms/get", axum::routing::post(get))
+        .route("/api/v1/rooms/list", axum::routing::post(list))
 }
 
-pub async fn create(mut req: tide::Request<()>) -> tide::Result {
-    let request: Request<String> = req.body_json().await?;
-    let error = request.verify();
+pub async fn create(Json(request): Json<Request<String>>) -> (StatusCode, Json<Response<String>>) {
+    let error = request.verify().await;
     if error.is_err() {
-        return Ok(new_response(format!("Invalid signature: {}", error.err().unwrap()), 403))
+        return new_response(format!("Invalid signature: {}", error.err().unwrap()), 403)
     }
     let connection = get_connection();
     let result = connection.execute(
@@ -68,77 +75,74 @@ pub async fn create(mut req: tide::Request<()>) -> tide::Result {
     );
     if result.is_err() {
         let err = result.err().expect("Failed to get error");
-        if err.sqlite_error_code().expect("Failed to get error code") == rusqlite::ErrorCode::ConstraintViolation {
+        if err.sqlite_error_code().expect("Failed to get error code") == ConstraintViolation {
             println!("The actual error was: {}", err);
-            return Ok(new_response("Room already exists", 409))
+            return new_response(String::from("Room already exists"), 409)
         } else {
             panic!("Failed to insert room into database: {}", err)
         }
     }
-    Ok(new_response("Room created", 201))
+    new_response(String::from("Room created"), 201)
 }
 
-pub async fn delete(mut req: tide::Request<()>) -> tide::Result {
-    let request: Request<String> = req.body_json().await?;
-    let error = request.verify();
+pub async fn delete(Json(request): Json<Request<Room>>) -> (StatusCode, Json<Response<String>>) {
+    let error = request.verify().await;
     if error.is_err() {
-        return Ok(new_response(format!("Invalid signature: {}", error.err().unwrap()), 403))
+        return new_response(format!("Invalid signature: {}", error.err().unwrap()), 403)
     }
     let connection = get_connection();
     let result = connection.execute(
         "DELETE FROM rooms WHERE name = ?;",
-        (request.data,),
+        (request.data.name,),
     );
     if result.is_err() {
         let err = result.err().expect("Failed to get error");
-        if err.sqlite_error_code().expect("Failed to get error code") == rusqlite::ErrorCode::ConstraintViolation {
-            return Ok(new_response("Room not found", 404))
+        if err.sqlite_error_code().expect("Failed to get error code") == ConstraintViolation {
+            return new_response(String::from("Room not found"), 404)
         } else {
             panic!("Failed to delete room from database: {}", err)
         }
     }
-    Ok(new_response("Room deleted", 200))
+    new_response(String::from("Room deleted"), 200)
 }
 
-pub async fn get(mut req: tide::Request<()>) -> tide::Result {
-    let request: Request<String> = req.body_json().await?;
-    let error = request.verify();
+pub async fn get(Json(request): Json<Request<Room>>) -> (StatusCode, Json<Response<String>>) {
+    let error = request.verify().await;
     if error.is_err() {
-        return Ok(new_response(format!("Invalid signature: {}", error.err().unwrap()), 403))
+        return new_response(format!("Invalid signature: {}", error.err().unwrap()), 403)
     }
     let connection = get_connection();
     let result = connection.query_row(
         "SELECT name FROM rooms WHERE name = ?;",
-        (request.data,),
+        (request.data.name,),
         |row| -> rusqlite::Result<String> { row.get(0) },
     );
     if result.is_err() {
         let err = result.err().expect("Failed to get error");
         if err == Error::QueryReturnedNoRows {
-            return Ok(new_response("Room not found", 404))
+            return new_response(String::from("Room not found"), 404)
         } else {
             panic!("Failed to get room from database: {}", err)
         }
     }
-    Ok(new_response("Room found", 200))
+    new_response(String::from("Room found"), 200)
 }
 
-pub async fn list(mut req: tide::Request<()>) -> tide::Result {
-    let request: Request<BlankRequest> = req.body_json().await?;
-    let error = request.verify();
+pub async fn list(Json(request): Json<Request<BlankRequest>>) -> (StatusCode, Json<Response<Value>>) {
+    let error = request.verify().await;
     if error.is_err() {
-        return Ok(new_response(format!("Invalid signature: {}", error.err().unwrap()), 403))
+        return new_response(Value::from(format!("Invalid signature: {}", error.err().unwrap())), 403)
     }
     let connection = get_connection();
-    let mut stmt = connection.prepare("SELECT name FROM rooms;")?;
+    let mut stmt = connection.prepare("SELECT name FROM rooms;").expect("Failed to prepare statement");
     let room_iter = stmt.query_map([], |row| {
         Ok(Room {
             name: row.get(0)?,
         })
-    })?;
+    }).expect("Failed to query rooms");
     let mut rooms = Vec::new();
     for room in room_iter {
-        rooms.push(room?);
+        rooms.push(room.expect("Failed to get room"));
     }
-    Ok(new_response(&rooms, 200))
+    new_response(json!(rooms), 200)
 }

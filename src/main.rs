@@ -1,16 +1,18 @@
+use std::str::FromStr;
+use tracing_subscriber::filter::LevelFilter;
+use crate::settings::get_string;
+
 mod database;
 mod handlers;
 mod key;
 mod settings;
 
-use crate::settings::get_string;
-use log::LevelFilter;
-use std::str::FromStr;
-
-#[async_std::main]
-async fn main() -> tide::Result<()> {
+#[tokio::main]
+async fn main() {
     settings::init();
-    tide::log::with_level(LevelFilter::from_str(&*get_string("log.level")).expect("Failed to get log level"));
+    tracing_subscriber::fmt()
+        .with_max_level(LevelFilter::from_str(get_string("log.level").as_str()).expect("Failed to parse log level"))
+        .init();
     key::init();
     database::init();
     handlers::init().await

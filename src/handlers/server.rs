@@ -2,35 +2,61 @@ use crate::database::get_connection;
 use crate::handlers::new_response;
 use crate::key::SIGNING_KEY;
 use crate::settings::{get_bool, get_string};
+use axum::{Json, Router};
 use ed25519_dalek::VerifyingKey;
+use libcharm::error::Error;
+use libcharm::request::Response;
 use libcharm::server::{Key, Ping, Server};
 use std::time::{SystemTime, UNIX_EPOCH};
-use libcharm::error::Error;
-use tide::{Body, Request};
+use axum::http::StatusCode;
+use axum::routing::trace;
+use log::{debug, info, trace};
+use r2d2_sqlite::rusqlite;
+use reqwest::Url;
 
-pub fn init(app: &mut tide::Server<()>) {
-    app.at("/api/v1/server/push").post(push);
-    app.at("/api/v1/server/key").get(key);
-    app.at("/api/v1/server/ping").get(ping);
+//noinspection HttpUrlsUsage
+fn compare_domains(domain1: &str, domain2: &str) -> bool {
+    if domain1.contains("://") && !domain2.contains("://") {
+        if strip_scheme(domain1) == domain2 {
+            true
+        } else {
+            false
+        }
+    } else if !domain1.contains("://") && domain2.contains("://") {
+        if strip_scheme(domain2) == domain1 {
+            true
+        } else {
+            false
+        }
+    } else {
+        domain1 == domain2
+    }
+}
+
+fn strip_scheme(url: &str) -> String {
+    url.split("://")
+        .nth(1)
+        .map_or_else(|| url.to_string(), |s| s.to_string())
 }
 
 pub trait OctupleServer {
-    fn tls_supported(&self) -> Result<bool, reqwest::Error>;
-    fn ping(&self, https: bool) -> Result<(), reqwest::Error>;
-    fn fetch_and_save_remote_key(&self) -> Result<[u8; 32], Box<dyn std::error::Error>>;
-    fn fetch_remote_key(&self) -> Result<[u8; 32], reqwest::Error>;
+    async fn tls_supported(&self) -> Result<bool, Box<dyn std::error::Error + Send + Sync>>;
+    async fn ping(&self, https: bool) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    async fn fetch_and_save_remote_key(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>;
+    async fn fetch_remote_key(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>;
+    async fn get_server_key(&self) -> Result<VerifyingKey, Box<dyn std::error::Error + Send + Sync>>;
+    async fn get_absolute_domain(&self) -> Result<Url, Box<dyn std::error::Error + Send + Sync>>;
     fn fetch_local_key(&self) -> Result<[u8; 32], rusqlite::Error>;
-    fn get_server_key(&self) -> Result<VerifyingKey, Box<dyn std::error::Error>>;
 }
 
 impl OctupleServer for Server {
-    fn tls_supported(&self) -> Result<bool, reqwest::Error> {
-        let https_ping = self.ping(true);
+    async fn tls_supported(&self) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        let https_ping = self.ping(true).await;
         if https_ping.is_ok() {
             Ok(true)
         } else {
             if get_bool("federation.allow_http") {
-                let http_ping = self.ping(false);
+                let http_ping = self.ping(false).await;
                 if http_ping.is_ok() {
                     Ok(false)
                 } else {
@@ -42,18 +68,18 @@ impl OctupleServer for Server {
         }
     }
 
-    fn ping(&self, https: bool) -> Result<(), reqwest::Error> {
+    async fn ping(&self, https: bool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let scheme = if https { "https" } else { "http" };
         let url = format!("{scheme}://{}/api/v1/server/ping", self.domain);
-        let url = url.parse::<reqwest::Url>().expect(format!("Failed to parse URL: {}", url).as_str());
-        let client = reqwest::blocking::Client::new();
-        let response = client.get(url).send()?;
+        let url = Url::parse(url.as_str())?;
+        let client = reqwest::Client::new();
+        let response = client.get(url).send().await?;
         response.error_for_status_ref()?;
         Ok(())
     }
 
-    fn fetch_and_save_remote_key(&self) -> Result<[u8; 32], Box<dyn std::error::Error>> {
-        let key = self.fetch_remote_key()?;
+    async fn fetch_and_save_remote_key(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
+        let key = self.fetch_remote_key().await?;
         let conn = get_connection();
         conn.execute(
             "INSERT INTO keys (domain, key) VALUES (?, ?)",
@@ -62,34 +88,27 @@ impl OctupleServer for Server {
         Ok(key)
     }
 
-    fn fetch_remote_key(&self) -> Result<[u8; 32], reqwest::Error> {
-        let scheme = if self.tls_supported()? { "https" } else { "http" };
-        let url = format!("{scheme}://{}/api/v1/server/key", self.domain);
-        let url = url.parse::<reqwest::Url>().expect(format!("Failed to parse URL: {}", url).as_str());
-        let client = reqwest::blocking::Client::new();
-        let response = client.get(url).send()?;
+    async fn fetch_remote_key(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
+        let client = reqwest::Client::new();
+        let response = client.get(self.get_absolute_domain().await?.join("api/v1/server/key")?)
+            .send()
+            .await?;
         response.error_for_status_ref()?;
-        let remote_key: Key = response.json()?;
+        let remote_key: Key = response.json().await?;
         Ok(remote_key.data)
     }
 
-    fn fetch_local_key(&self) -> Result<[u8; 32], rusqlite::Error> {
-        let conn = get_connection();
-        conn.query_row(
-            "SELECT key FROM keys WHERE domain = ?",
-            [self.domain.clone()],
-            |row| row.get(0),
-        )
-    }
-
-    fn get_server_key(&self) -> Result<VerifyingKey, Box<dyn std::error::Error>> {
-        if self.domain != get_string("core.domain") {
+    async fn get_server_key(&self) -> Result<VerifyingKey, Box<dyn std::error::Error + Send + Sync>> {
+        trace!("Comparing domains: {} and {}", self.domain, get_string("core.domain"));
+        if !compare_domains(&self.domain, &get_string("core.domain")) {
+            trace!("Using remote signing key for domain: {}", self.domain);
+            debug!("Fetching remote key for domain: {}", self.domain);
             if get_bool("federation.enabled") {
                 let key = self.fetch_local_key();
                 if key.is_err() {
                     let err = key.err().expect("Failed to get error");
                     if err == rusqlite::Error::QueryReturnedNoRows {
-                        let key = self.fetch_and_save_remote_key()?;
+                        let key = self.fetch_and_save_remote_key().await?;
                         let key = VerifyingKey::from_bytes(&key)?;
                         Ok(key)
                     } else {
@@ -104,38 +123,67 @@ impl OctupleServer for Server {
                 Err(Box::new(Error::new("Federation is disabled")))
             }
         } else {
+            trace!("Using local signing key for domain: {}", self.domain);
             Ok(SIGNING_KEY.get().expect("Failed to get signing key").verifying_key())
         }
     }
+
+    //noinspection HttpUrlsUsage
+    async fn get_absolute_domain(&self) -> Result<Url, Box<dyn std::error::Error + Send + Sync>> {
+        if self.domain.contains("://") {
+            Url::parse(self.domain.as_str())
+                .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+        } else {
+            if self.tls_supported().await? {
+                Url::parse(format!("https://{}", self.domain).as_str())
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+            } else {
+                Url::parse(format!("http://{}", self.domain).as_str())
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+            }
+        }
+    }
+
+    fn fetch_local_key(&self) -> Result<[u8; 32], rusqlite::Error> {
+        let conn = get_connection();
+        conn.query_row(
+            "SELECT key FROM keys WHERE domain = ?",
+            [self.domain.clone()],
+            |row| row.get(0),
+        )
+    }
 }
 
-pub async fn push(mut req: Request<()>) -> tide::Result {
-    let server: Server = req.body_json().await?;
-    let result = server.fetch_and_save_remote_key();
+pub async fn push(Json(server): Json<Server>) -> (StatusCode, Json<Response<String>>) {
+    let result = server.fetch_and_save_remote_key().await;
     if result.is_err() {
         let err = result.err().expect("Failed to get error");
         return if err.downcast_ref::<reqwest::Error>().is_some() {
-            Ok(new_response("Failed to fetch remote key", 500))
+            new_response(String::from("Failed to fetch remote key"), 500)
         } else {
-            Ok(new_response("Failed to save remote key", 500))
+            new_response(String::from("Failed to save remote key"), 500)
         }
     }
-    Ok(new_response("Key pushed", 200))
+    new_response(String::from("Key pushed"), 200)
 }
 
-pub async fn key(_req: Request<()>) -> tide::Result {
-    let mut response = tide::Response::new(200);
-    response.set_body(Body::from_json(&Key {
+pub fn init(app: Router) -> Router {
+    info!("Initializing server handlers");
+    app
+        .route("/api/v1/server/push", axum::routing::post(push))
+        .route("/api/v1/server/key", axum::routing::get(key))
+        .route("/api/v1/server/ping", axum::routing::get(ping))
+}
+
+pub async fn key() -> Json<Key> {
+    Json::from(Key {
         data: *SIGNING_KEY.get().expect("Failed to get signing key").verifying_key().as_bytes(),
-    })?);
-    Ok(response)
+    })
 }
 
 
-pub async fn ping(_req: Request<()>) -> tide::Result {
-    let mut response = tide::Response::new(200);
-    response.set_body(Body::from_json(&Ping {
+pub async fn ping() -> Json<Ping> {
+    Json::from(Ping {
         timestamp: SystemTime::now().duration_since(UNIX_EPOCH).expect("Failed to get time").as_secs(),
-    })?);
-    Ok(response)
+    })
 }

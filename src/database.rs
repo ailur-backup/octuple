@@ -1,10 +1,12 @@
 use std::sync::OnceLock;
+use log::{info};
 use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
 
 static CONNECTION_POOL: OnceLock<Pool<SqliteConnectionManager>> = OnceLock::new();
 
 pub fn init() {
+    info!("Initializing database connection pool");
     CONNECTION_POOL
         .set(
             Pool::builder()
@@ -130,6 +132,7 @@ pub fn init() {
             [],
         )
         .expect("Failed to create messages table");
+    info!("Database connection pool initialized successfully");
 }
 
 pub fn get_connection_pool() -> &'static Pool<SqliteConnectionManager> {
