@@ -8,6 +8,7 @@ use axum::extract::ws::{Utf8Bytes, WebSocketUpgrade};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{any, post};
+use r2d2_sqlite::rusqlite;
 use crate::database::get_connection;
 use crate::handlers::OctupleRequest;
 use crate::handlers::{new_response};
@@ -21,7 +22,6 @@ use tokio::select;
 use tokio::sync::broadcast::{Sender};
 use bytes::Bytes;
 use lazy_static::lazy_static;
-use r2d2_sqlite::rusqlite;
 use r2d2_sqlite::rusqlite::ErrorCode::ConstraintViolation;
 use tokio::time::sleep;
 
@@ -41,7 +41,7 @@ pub async fn list(Json(request): Json<Request<Room>>) -> (StatusCode, Json<Respo
             room: request.data.clone(),
             content: row.get(0)?,
             id: Some(Uuid::from_slice(&*row.get::<_, Vec<u8>>(1)?).unwrap()),
-            sender: Some(User::from_string(&*row.get::<_, String>(2)?)),
+            sender: Some(User::from(&*row.get::<_, String>(2)?)),
         })
     }).expect("Failed to query messages");
     let map = message_iter.collect::<Result<Vec<_>, rusqlite::Error>>().expect("Failed to collect messages");
@@ -181,10 +181,29 @@ pub async fn listen(ws: WebSocketUpgrade) -> impl IntoResponse {
     })
 }
 
+pub async fn delete(Json(request): Json<Request<Message>>) -> (StatusCode, Json<Response<String>>) {
+    let error = request.verify().await;
+    if error.is_err() {
+        return new_response(String::from("Invalid request"), 400);
+    }
+
+    let connection = get_connection();
+    let result = connection.execute(
+        "DELETE FROM messages WHERE id = ? AND sender = ?",
+        (request.data.id.unwrap().as_bytes(), request.certificate.components.user.to_string()),
+    );
+    if result.is_err() {
+        panic!("Failed to delete message: {}", result.err().unwrap())
+    }
+
+    return new_response(String::from("Message deleted sucessfully"), 200)
+}
+
 pub fn init(app: Router) -> Router {
     info!("Initializing messages handlers");
     app
         .route("/api/v1/messages/list", post(list))
         .route("/api/v1/messages/send", post(send))
         .route("/api/v1/messages/listen", any(listen))
+        .route("/api/v1/messages/delete", post(delete))
 }

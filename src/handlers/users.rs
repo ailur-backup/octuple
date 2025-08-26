@@ -1,5 +1,6 @@
+use crate::errors::Error;
 use crate::database::get_connection;
-use crate::handlers::new_response;
+use crate::handlers::{new_response, OctupleRequest};
 use crate::handlers::server::OctupleServer;
 use crate::key::SIGNING_KEY;
 use axum::response::IntoResponse;
@@ -7,16 +8,15 @@ use axum::{Json, Router};
 use ed25519_dalek::ed25519::SignatureBytes;
 use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 use libcharm::endpoints::user::{Create, Login};
-use libcharm::request::{Request, Response};
+use libcharm::request::{BlankRequest, Request, Response};
 use libcharm::user::{Certificate, CertificateComponents, User};
 use signature::{Signer, Verifier};
-use std::error;
 use axum::http::StatusCode;
 use axum::routing::post;
 use libcharm::server::Server;
 use log::info;
 use r2d2_sqlite::rusqlite::Error::QueryReturnedNoRows;
-use r2d2_sqlite::rusqlite::ErrorCode::ConstraintViolation;
+use r2d2_sqlite::rusqlite::ErrorCode::{self, ConstraintViolation};
 use crate::settings::get_string;
 
 pub trait OctupleCertificateComponents {
@@ -31,11 +31,11 @@ impl OctupleCertificateComponents for CertificateComponents {
 }
 
 pub trait OctupleCertificate {
-    async fn verify(&self) -> Result<(), Box<dyn error::Error + Send + Sync>>;
+    async fn verify(&self) -> Result<(), Error>;
 }
 
 impl OctupleCertificate for Certificate {
-    async fn verify(&self) -> Result<(), Box<dyn error::Error + Send + Sync>> {
+    async fn verify(&self) -> Result<(), Error> {
         let bytes = serde_json::to_vec(&self.components)?;
         let key = self.components.user.server.get_server_key().await?;
         key.verify(&bytes, &Signature::from(self.signature))?;
@@ -47,7 +47,7 @@ pub fn init(app: Router) -> Router {
     info!("Initializing users handlers");
     app
         .route("/api/v1/users/create", post(create))
-        // .route("/api/v1/users/delete", axum::routing::post(delete))
+        .route("/api/v1/users/delete", post(delete))
         .route("/api/v1/users/login", post(login))
 }
 
@@ -68,13 +68,12 @@ pub async fn create(Json(create): Json<Create>) -> (StatusCode, Json<Response<St
     new_response(String::from("User created"), 201)
 }
 
-/*
-pub async fn delete(mut req: tide::Request<()>) -> tide::Result {
-    let request: Request<BlankRequest> = req.body_json().await?;
+pub async fn delete(Json(request): Json<Request<BlankRequest>>) -> (StatusCode, Json<Response<String>>) {
     let error = request.verify().await;
     if error.is_err() {
-        return Ok(new_response_string(format!("Invalid signature: {}", error.err().unwrap()), 403))
+        return new_response(format!("Invalid signature: {}", error.err().unwrap()), 403)
     }
+
     let connection = get_connection();
     let result = connection.execute(
         "DELETE FROM users WHERE username = ?;",
@@ -82,15 +81,14 @@ pub async fn delete(mut req: tide::Request<()>) -> tide::Result {
     );
     if result.is_err() {
         let err = result.err().expect("Failed to get error");
-        if err.sqlite_error_code().expect("Failed to get error code") == rusqlite::ErrorCode::ConstraintViolation {
-            return Ok(new_response("User not found", 404))
+        if err.sqlite_error_code().expect("Failed to get error code") == ErrorCode::ConstraintViolation {
+            return new_response(String::from("User not found"), 404)
         } else {
             panic!("Failed to delete user from database: {}", err)
         }
     }
-    Ok(new_response("User deleted", 200))
+    new_response(String::from("User deleted"), 200)
 }
-*/
 
 pub async fn login(Json(login): Json<Login>) -> axum::response::Response {
     let connection = get_connection();

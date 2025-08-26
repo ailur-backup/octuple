@@ -320,9 +320,6 @@ library. FUNCTIONALITY.txt in the root of the repository in this snapshot explai
 
 28/05/2025
 
-// Unoffical summary: I brought back authentication of users (but no room security yet), switched from tide
-to axum (async-std is deprecated) and used websockets to allow for rooms to be real-time.
-
 I have brought back the authentication of users, but not yet implemented room security. I have also switched from the
 tide framework to the axum framework, as tide relies on the deprecated async-std library (and seems to be mostly
 unmaintained). This change was made on the advice of a friend, who is more experienced with Rust than I am, and claimed
@@ -354,3 +351,50 @@ The sources I have used today are:
 
 A snapshot of the code at this point in time is available via the Git tag DEV-28052025 on both the frontend, backend and
 library. FUNCTIONALITY.txt in the root of the repository in this snapshot explains in more detail what is and isn't working.
+
+24/08/2025
+
+After a long break from the project, I have returned to development. I have decided to revive my implementation of spaces,
+albiet still without permissions, as I was unsatisfied with the functionality of the previous release. Having come back to
+the codebase after a long break, I have realized that my error handling was rather unclean, I have mixed and matched error
+types and used Box<dyn Error> as a generic error type, meaning that I could not compare errors.
+
+To fix this, I refactored my error handling in order to be able to cast every error type used in the program to a single
+unified error type, and got rid of the existing struct-based error type in libcharm-rs in exchange for an enum-based type
+which would cast to the generic error type. This improves over boxes as it allows me to cast easily to the underlying types,
+and compare them.
+
+For spaces, I have modified the database format to be able to once again support spaces, and uncommented and cleaned up a lot
+of code in spaces.rs to the new axum system. I encountered some problems with repetitive boilerplate code whilst checking for
+if a user is a member of a space, and so I have decided to use rust's macro feature in order to allow for code to be written
+in a more efficient manner, minimising repetitiveness. I have not handled rust macros prior to this point, and so this took a
+bit of learning.
+
+I then worked on re-adding the user deletion feature, as well as implementing message deletion on the backend. I also refactored
+libcharm as a git submodule such that it would compile outside of my specific setup, and have rebased onto github due to the shutdown
+of my own forgejo hosting services. From there, I started working on the frontend again, and added images to the backend as I had 
+forgotten to do that earlier.
+
+I have implemented the following endpoints:
+- /api/v1/spaces/* - Spaces have now been implemented
+- /api/v1/users/delete - User deletion has been restored
+- /api/v1/messages/delete - Message deletion has been restored
+
+To summarise, today I have demonstrated learning via:
+- Bringing back the spaces
+- Using frontend development to realise what I am missing on the backend
+- Refactoring my error handling to be more powerful
+- Using rust macros to reduce redundency in my code
+
+I have had prior experience with:
+- Frontend development
+
+The sources I have used today are:
+- https://doc.rust-lang.org/book/ch20-05-macros.html : For learning about macros
+
+A snapshot of the code at this point in time is available via the Git tag DEV-28052025 on both the backend and library.
+FUNCTIONALITY.txt in the root of the repository in this snapshot explains in more detail what is and isn't working.
+
+26/08/25
+
+I have began work on the frontend, and realised that I forgot to add image support to the backend, so that has been done.

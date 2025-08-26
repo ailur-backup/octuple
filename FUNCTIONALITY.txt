@@ -12,19 +12,21 @@ Functionality being worked on:
 - Frontend
 
 Functionality that is working in an unsecure beta way:
-- Rooms (proper functionality blocked by spaces and permissions)
-- Sending and receiving messages in rooms (proper functionality blocked by rooms)
+- Invitations (proper functionality blocked by permissions)
+- Spaces (proper functionality blocked by permissions)
+- Rooms (proper functionality blocked by permissions)
+- Sending and receiving messages in rooms (proper functionality blocked by encryption in rooms)
 
 Functionality that could be improved upon:
 - Better federation separation
 
 Functionality moved to the future:
-- Spaces
-- Permissions (blocked by spaces)
-- Encryption in rooms (blocked by sending and receiving messages in rooms, rooms and permissions)
+- Permissions
+- Encryption in rooms (blocked by permissions and invitations)
 - User-To-User key exchange
 - Direct messaging
 - Deleting users
+- Deleting messages
 - User profiles and avatars
 
 Functionality that may not be implemented in the final product:

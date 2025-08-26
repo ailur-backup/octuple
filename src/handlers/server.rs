@@ -3,13 +3,12 @@ use crate::handlers::new_response;
 use crate::key::SIGNING_KEY;
 use crate::settings::{get_bool, get_string};
 use axum::{Json, Router};
+use crate::errors::{Error, OctupleError};
 use ed25519_dalek::VerifyingKey;
-use libcharm::error::Error;
 use libcharm::request::Response;
 use libcharm::server::{Key, Ping, Server};
 use std::time::{SystemTime, UNIX_EPOCH};
 use axum::http::StatusCode;
-use axum::routing::trace;
 use log::{debug, info, trace};
 use r2d2_sqlite::rusqlite;
 use reqwest::Url;
@@ -40,17 +39,17 @@ fn strip_scheme(url: &str) -> String {
 }
 
 pub trait OctupleServer {
-    async fn tls_supported(&self) -> Result<bool, Box<dyn std::error::Error + Send + Sync>>;
-    async fn ping(&self, https: bool) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
-    async fn fetch_and_save_remote_key(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>;
-    async fn fetch_remote_key(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>>;
-    async fn get_server_key(&self) -> Result<VerifyingKey, Box<dyn std::error::Error + Send + Sync>>;
-    async fn get_absolute_domain(&self) -> Result<Url, Box<dyn std::error::Error + Send + Sync>>;
-    fn fetch_local_key(&self) -> Result<[u8; 32], rusqlite::Error>;
+    async fn tls_supported(&self) -> Result<bool, Error>;
+    async fn ping(&self, https: bool) -> Result<(), Error>;
+    async fn fetch_and_save_remote_key(&self) -> Result<[u8; 32], Error>;
+    async fn fetch_remote_key(&self) -> Result<[u8; 32], Error>;
+    async fn get_server_key(&self) -> Result<VerifyingKey, Error>;
+    async fn get_absolute_domain(&self) -> Result<Url, Error>;
+    fn fetch_local_key(&self) -> Result<[u8; 32], Error>;
 }
 
 impl OctupleServer for Server {
-    async fn tls_supported(&self) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+    async fn tls_supported(&self) -> Result<bool, Error> {
         let https_ping = self.ping(true).await;
         if https_ping.is_ok() {
             Ok(true)
@@ -68,7 +67,7 @@ impl OctupleServer for Server {
         }
     }
 
-    async fn ping(&self, https: bool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn ping(&self, https: bool) -> Result<(), Error> {
         let scheme = if https { "https" } else { "http" };
         let url = format!("{scheme}://{}/api/v1/server/ping", self.domain);
         let url = Url::parse(url.as_str())?;
@@ -78,7 +77,7 @@ impl OctupleServer for Server {
         Ok(())
     }
 
-    async fn fetch_and_save_remote_key(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
+    async fn fetch_and_save_remote_key(&self) -> Result<[u8; 32], Error> {
         let key = self.fetch_remote_key().await?;
         let conn = get_connection();
         conn.execute(
@@ -88,7 +87,7 @@ impl OctupleServer for Server {
         Ok(key)
     }
 
-    async fn fetch_remote_key(&self) -> Result<[u8; 32], Box<dyn std::error::Error + Send + Sync>> {
+    async fn fetch_remote_key(&self) -> Result<[u8; 32], Error> {
         let client = reqwest::Client::new();
         let response = client.get(self.get_absolute_domain().await?.join("api/v1/server/key")?)
             .send()
@@ -98,7 +97,7 @@ impl OctupleServer for Server {
         Ok(remote_key.data)
     }
 
-    async fn get_server_key(&self) -> Result<VerifyingKey, Box<dyn std::error::Error + Send + Sync>> {
+    async fn get_server_key(&self) -> Result<VerifyingKey, Error> {
         trace!("Comparing domains: {} and {}", self.domain, get_string("core.domain"));
         if !compare_domains(&self.domain, &get_string("core.domain")) {
             trace!("Using remote signing key for domain: {}", self.domain);
@@ -107,12 +106,13 @@ impl OctupleServer for Server {
                 let key = self.fetch_local_key();
                 if key.is_err() {
                     let err = key.err().expect("Failed to get error");
-                    if err == rusqlite::Error::QueryReturnedNoRows {
+                    let sql_error = err.as_sql().expect("Error is not a SQL error");
+                    if *sql_error == rusqlite::Error::QueryReturnedNoRows {
                         let key = self.fetch_and_save_remote_key().await?;
                         let key = VerifyingKey::from_bytes(&key)?;
                         Ok(key)
                     } else {
-                        Err(Box::new(err))
+                        Err(err)
                     }
                 } else {
                     let key = key?;
@@ -120,7 +120,7 @@ impl OctupleServer for Server {
                     Ok(key)
                 }
             } else {
-                Err(Box::new(Error::new("Federation is disabled")))
+                Err(Error::from(OctupleError::FederationDisabled))
             }
         } else {
             trace!("Using local signing key for domain: {}", self.domain);
@@ -129,28 +129,33 @@ impl OctupleServer for Server {
     }
 
     //noinspection HttpUrlsUsage
-    async fn get_absolute_domain(&self) -> Result<Url, Box<dyn std::error::Error + Send + Sync>> {
+    async fn get_absolute_domain(&self) -> Result<Url, Error> {
         if self.domain.contains("://") {
-            Url::parse(self.domain.as_str())
-                .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+            Url::parse(self.domain.as_str()).map_err(|e| {
+                Error::from(e)
+            })
         } else {
             if self.tls_supported().await? {
-                Url::parse(format!("https://{}", self.domain).as_str())
-                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+                Url::parse(format!("https://{}", self.domain).as_str()).map_err(|e| {
+                    Error::from(e)
+                })
             } else {
-                Url::parse(format!("http://{}", self.domain).as_str())
-                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+                Url::parse(format!("http://{}", self.domain).as_str()).map_err(|e| {
+                    Error::from(e)
+                })
             }
         }
     }
 
-    fn fetch_local_key(&self) -> Result<[u8; 32], rusqlite::Error> {
+    fn fetch_local_key(&self) -> Result<[u8; 32], Error> {
         let conn = get_connection();
         conn.query_row(
             "SELECT key FROM keys WHERE domain = ?",
             [self.domain.clone()],
             |row| row.get(0),
-        )
+        ).map_err(|e| {
+            Error::from(e)
+        })
     }
 }
 
@@ -158,7 +163,7 @@ pub async fn push(Json(server): Json<Server>) -> (StatusCode, Json<Response<Stri
     let result = server.fetch_and_save_remote_key().await;
     if result.is_err() {
         let err = result.err().expect("Failed to get error");
-        return if err.downcast_ref::<reqwest::Error>().is_some() {
+        return if err.as_reqwest().is_some() {
             new_response(String::from("Failed to fetch remote key"), 500)
         } else {
             new_response(String::from("Failed to save remote key"), 500)

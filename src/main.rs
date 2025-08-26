@@ -6,6 +6,7 @@ mod database;
 mod handlers;
 mod key;
 mod settings;
+mod errors;
 
 #[tokio::main]
 async fn main() {

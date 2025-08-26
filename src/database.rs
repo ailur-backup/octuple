@@ -35,15 +35,21 @@ pub fn init() {
         )
         .expect("Failed to create keys table");
     init_connection
+        // SOME OPTIONS ARE DISABLED FOR THE BETA RELEASE
         .execute(
             "CREATE TABLE IF NOT EXISTS space (
                 name TEXT PRIMARY KEY NOT NULL,
-                public BOOLEAN NOT NULL,
+                image TEXT NOT NULL
+                /*
+                public BOOLEAN NOT NULL
                 hierarchy TEXT NOT NULL
+                */
             )",
             [],
         )
         .expect("Failed to create space table");
+    // DISABLED FOR BETA RELEASE
+    /*
     init_connection
         .execute("CREATE TABLE IF NOT EXISTS roles (
                 name TEXT NOT NULL,
@@ -55,6 +61,9 @@ pub fn init() {
          [],
         )
         .expect("Failed to create roles table");
+    */
+    // DISABLED FOR BETA RELEASE
+    /*
     init_connection
         .execute(
             "CREATE TABLE IF NOT EXISTS space_permissions (
@@ -66,21 +75,24 @@ pub fn init() {
             [],
         )
         .expect("Failed to create permissions table");
+     */
     init_connection
         // SOME OPTIONS ARE DISABLED FOR THE BETA RELEASE
         .execute(
             "CREATE TABLE IF NOT EXISTS rooms (
-                name TEXT NOT NULL
+                name TEXT NOT NULL,
+                space TEXT NOT NULL,
+                PRIMARY KEY (name, space)
                 /*
                 federated BOOLEAN NOT NULL,
                 encrypted BOOLEAN NOT NULL,
-                space TEXT NOT NULL,
-                PRIMARY KEY (name, space)
                 */
             )",
             [],
         )
         .expect("Failed to create rooms table");
+    // DISABLED FOR BETA RELEASE
+    /*
     init_connection
         .execute(
             "CREATE TABLE IF NOT EXISTS room_permissions (
@@ -92,23 +104,19 @@ pub fn init() {
             [],
         )
         .expect("Failed to create permissions table");
+     */
     init_connection
-        // SOME OPTIONS ARE CHANGED FOR THE BETA RELEASE
         .execute(
             "CREATE TABLE IF NOT EXISTS members (
-                /*
                 space TEXT NOT NULL,
-                */
-                room TEXT NOT NULL,
                 user TEXT NOT NULL,
-                /*
-                PRIMARY KEY (space, user),
-                */
-                PRIMARY KEY (room, user)
+                PRIMARY KEY (space, user)
             )",
             [],
         )
         .expect("Failed to create members table");
+    // DISABLED FOR BETA RELEASE
+    /*
     init_connection
         .execute(
             "CREATE TABLE IF NOT EXISTS member_roles (
@@ -120,6 +128,18 @@ pub fn init() {
             [],
         )
         .expect("Failed to create member roles table");
+    */
+    init_connection
+        .execute(
+            "CREATE TABLE IF NOT EXISTS invites (
+                space TEXT NOT NULL,
+                creator TEXT NOT NULL,
+                expiry INTEGER NOT NULL,
+                code BLOB NOT NULL
+            )",
+            [],
+        )
+        .expect("Failed to create invites table");
     init_connection
         .execute(
             "CREATE TABLE IF NOT EXISTS messages (

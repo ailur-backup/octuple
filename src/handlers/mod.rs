@@ -1,4 +1,4 @@
-use std::error::Error;
+use crate::errors::Error;
 use crate::settings::{get_bool, get_string};
 use axum::http::{StatusCode};
 use axum::response::Html;
@@ -23,18 +23,15 @@ mod spaces;
 mod messages;
 
 trait OctupleRequest {
-    async fn verify(&self) -> Result<(), Box<dyn Error + Send + Sync>>;
+    async fn verify(&self) -> Result<(), Error>;
 }
 
 impl<T: Serialize> OctupleRequest for Request<T> {
-    async fn verify(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        self.certificate.verify().await.map_err(|e|
-            Box::new(libcharm::error::Error::new(&format!("Failed to verify certificate: {}", e))) as Box<dyn Error + Send + Sync>
-        )?;
-        let data = serde_json::to_vec(&self.data)
-            .map_err(|e| Box::new(libcharm::error::Error::new(&format!("Failed to serialize data: {}", e))) as Box<dyn Error + Send + Sync>)?;
+    async fn verify(&self) -> Result<(), Error> {
+        self.certificate.verify().await?;
+        let data = serde_json::to_vec(&self.data)?;
         let key = VerifyingKey::from_bytes(&self.certificate.components.key)?;
-        key.verify(data.as_slice(), &Signature::from(self.signature)).map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
+        key.verify(data.as_slice(), &Signature::from(self.signature))?;
         Ok(())
     }
 }
@@ -56,13 +53,12 @@ pub async fn init() {
     app = rooms::init(app);
     app = users::init(app);
     app = messages::init(app);
-    // DISABLED FOR BETA RELEASE, SEE HISTORY.TXT
-    // app = spaces::init(app);
+    app = spaces::init(app);
     info!("All handlers initialized, setting up middleware");
     app = app.layer(
         ServiceBuilder::new()
             .layer(TraceLayer::new_for_http())
-            .layer(CorsLayer::new().allow_origin(Any).allow_methods([Method::GET, Method::POST, Method::OPTIONS]))
+            .layer(CorsLayer::new().allow_origin(Any).allow_headers(Any).allow_methods([Method::GET, Method::POST, Method::OPTIONS]))
     );
     info!("Starting server on {}", get_string("core.listener"));
     let listener = TcpListener::bind(get_string("core.listener")).await.unwrap();
