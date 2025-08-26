@@ -1,0 +1,3 @@
+[submodule "libcharm-rs"]
+	path = libcharm-rs
+	url = https://github.com/ailur-backup/libcharm-rs
