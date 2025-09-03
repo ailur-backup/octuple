@@ -17,21 +17,21 @@ use crate::handlers::{new_response, OctupleRequest};
 use crate::handlers::rooms::{OctupleRoom};
 
 pub trait OctupleSpaceConfig {
-    fn insert(&self, connection: &Connection) -> Result<(), Error>;
+    fn insert(&self, user: &User, connection: &Connection) -> Result<(), Error>;
     fn get_rooms(space: &Space, connection: &Connection) -> Result<Vec<Room>, Error>;
     fn get_members(space: &Space, connection: &Connection) -> Result<Vec<User>, Error>;
     fn get(space: &Space, connection: &Connection) -> Result<Config, Error>;
 }
 
 impl OctupleSpaceConfig for Config {
-    fn insert(&self, connection: &Connection) -> Result<(), Error> {
+    fn insert(&self, user: &User, connection: &Connection) -> Result<(), Error> {
         connection.execute(
-            "INSERT INTO spaces (name) VALUES (?);",
-            (self.space.name.clone(),),
+            "INSERT INTO spaces (name, image) VALUES (?, ?);",
+            (self.space.name.as_str(), self.image.as_str()),
         )?;
         connection.execute(
             "INSERT INTO members (space, user) VALUES (?, ?);",
-            (self.space.to_string(), self.space.server.domain.clone()),
+            (self.space.to_string(), user.to_string()),
         )?;
         for room in &self.rooms {
             room.insert(connection)?;
@@ -149,7 +149,7 @@ pub async fn create(Json(request): Json<Request<Config>>) -> (StatusCode, Json<R
         return new_response(format!("Invalid signature: {}", error.err().unwrap()), 403)
     }
     let connection = get_connection();
-    let result = request.data.insert(&connection);
+    let result = request.data.insert(&request.certificate.components.user, &connection);
     if result.is_err() {
         let err = result.err().expect("Failed to get error").into_sql().expect("Error is not a SQL error");
         if err.sqlite_error_code().expect("Failed to get error code") == ConstraintViolation {
@@ -208,11 +208,19 @@ pub async fn list(Json(request): Json<Request<BlankRequest>>) -> (StatusCode, Js
 
     let connection: r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager> = get_connection();
     let mut stmt = connection.prepare("SELECT space FROM members WHERE user = ?").expect("Failed to prepare statement");
-    let mut rows = stmt.query([request.certificate.components.user.to_string()]).expect("Failed to fetch rows");
-    let mut spaces: Vec<Space> = Vec::new();
+    let mut rows = stmt.query((request.certificate.components.user.to_string(),)).expect("Failed to fetch rows");
+    let mut spaces: Vec<Value> = Vec::new();
     while let Some(row) = rows.next().expect("Failed to go to select next row") {
         let space = Space::from(row.get::<usize, String>(0).expect("Failed to fetch item from row").as_str());
-        spaces.push(space);
+        let config = space.get_config(&connection);
+        if config.is_err() {
+            let err = config.err().expect("Failed to get error").into_sql().expect("Error is not a SQL error");
+            panic!("Failed to get space from database: {}", err)
+        }
+        spaces.push(json!({
+            "space": space,
+            "image": config.unwrap().image,
+        }));
     }
 
     new_response(json!(spaces), 200)
@@ -246,7 +254,7 @@ pub async fn join(Json(request): Json<Request<Invite>>) -> (StatusCode, Json<Res
         return new_response(Value::from("Invite expired"), 403)
     }
 
-    let space: Space = Space::from(values.1.as_str());
+    let space = Space::from(values.1.as_str());
     let result = space.add_member(&request.certificate.components.user, &connection);
     if result.is_err() {
         let err = result.err().expect("Failed to get error").into_sql().expect("Error is not a SQL error");
@@ -257,8 +265,16 @@ pub async fn join(Json(request): Json<Request<Invite>>) -> (StatusCode, Json<Res
             panic!("Failed to add member to space: {}", err)
         }
     }
+    let config = space.get_config(&connection);
+    if config.is_err() {
+        let err = config.err().expect("Failed to get error").into_sql().expect("Error is not a SQL error");
+        panic!("Failed to get space from database: {}", err)
+    }
 
-    new_response(json!(space), 200)
+    new_response(json!({
+        "space": space,
+        "image": config.unwrap().image,
+    }), 200)
 }
 
 pub async fn leave(Json(request): Json<Request<Space>>) -> (StatusCode, Json<Response<String>>) {

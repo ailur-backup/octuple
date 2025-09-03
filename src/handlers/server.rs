@@ -82,7 +82,7 @@ impl OctupleServer for Server {
         let conn = get_connection();
         conn.execute(
             "INSERT INTO keys (domain, key) VALUES (?, ?)",
-            (self.domain.clone(), key),
+            (self.domain.as_str(), key),
         )?;
         Ok(key)
     }
@@ -151,7 +151,7 @@ impl OctupleServer for Server {
         let conn = get_connection();
         conn.query_row(
             "SELECT key FROM keys WHERE domain = ?",
-            [self.domain.clone()],
+            [self.domain.as_str()],
             |row| row.get(0),
         ).map_err(|e| {
             Error::from(e)
@@ -185,7 +185,6 @@ pub async fn key() -> Json<Key> {
         data: *SIGNING_KEY.get().expect("Failed to get signing key").verifying_key().as_bytes(),
     })
 }
-
 
 pub async fn ping() -> Json<Ping> {
     Json::from(Ping {

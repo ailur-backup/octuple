@@ -4,6 +4,7 @@ The point in time is 09042025, in case you forgot.
 Functionality working:
 - Logging in
 - Secure requests
+- Deleting users
 
 Functionality untested:
 - Federation
@@ -12,26 +13,25 @@ Functionality being worked on:
 - Frontend
 
 Functionality that is working in an unsecure beta way:
+- Space avatars (proper functionality blocked by permissions)
 - Invitations (proper functionality blocked by permissions)
 - Spaces (proper functionality blocked by permissions)
 - Rooms (proper functionality blocked by permissions)
+- Deleting messages (proper functionality blocked by permissions)
+- Deleting rooms (proper functionality blocked by permissions)
+- Deleting spaces (proper functionality blocked by permissions)
 - Sending and receiving messages in rooms (proper functionality blocked by encryption in rooms)
 
 Functionality that could be improved upon:
 - Better federation separation
 
-Functionality moved to the future:
+Functionality that may not be implemented in the final product:
 - Permissions
 - Encryption in rooms (blocked by permissions and invitations)
 - User-To-User key exchange
 - Direct messaging
-- Deleting users
-- Deleting messages
 - User profiles and avatars
-
-Functionality that may not be implemented in the final product:
 - Revocation of certificates
 - Revocation of server keys
 - Changing of user passwords
 - Display names
-- Profile pictures

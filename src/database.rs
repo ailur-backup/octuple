@@ -37,7 +37,7 @@ pub fn init() {
     init_connection
         // SOME OPTIONS ARE DISABLED FOR THE BETA RELEASE
         .execute(
-            "CREATE TABLE IF NOT EXISTS space (
+            "CREATE TABLE IF NOT EXISTS spaces (
                 name TEXT PRIMARY KEY NOT NULL,
                 image TEXT NOT NULL
                 /*

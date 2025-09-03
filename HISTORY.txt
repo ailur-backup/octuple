@@ -395,6 +395,25 @@ The sources I have used today are:
 A snapshot of the code at this point in time is available via the Git tag DEV-28052025 on both the backend and library.
 FUNCTIONALITY.txt in the root of the repository in this snapshot explains in more detail what is and isn't working.
 
-26/08/25
+03/09/25
 
 I have began work on the frontend, and realised that I forgot to add image support to the backend, so that has been done.
+Lots of frontend improvements have been added in this update, such as adding in a right click menu, refactoring more menus
+to be dynamically created using TypeScript, refactoring CSS files to be in a better format, etc. Some of the backend had not
+been properly bug tested in the previous commit, so that has also been fixed.
+
+I have updated the CSS to add themeing for the login and signup screens, as well as modifying bubblepop to be more versatile
+for this project. I then, using this modified version of bubblepop, added and implemented the settings menu and join / create
+server menu. I created a new right-click menu system in order to add functionality to various places for leaving, deleting and
+inviting to spaces, rooms and messages.
+
+In order to stop race conditions, I created a custom generic wrapper function called lock() that locks async functions such
+that a new instance could not be spawned whilst the existing function was still executing, which solved many issues I was having
+with concurrency. I learnt more about the inner workings of event listeners in order to implement the features in the right click
+menus as well as the improved bubblepop API.
+
+I added a theme system based off the CSS I created beforehand, loading different colors using CSS variables. Also using mostly CSS,
+I added a mobile mode; if your screen size is too small to display the full Charm UI, Charm will automatically change the layout
+such that the messages display in full screen, and adding a back button to get back to the sidebar. This was acheived via CSS media
+selectors; this ensures that a change in the display size will be instant and no JavaScript will have to be called to change it back.
+

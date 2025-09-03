@@ -31,7 +31,7 @@ impl OctupleRoom for Room {
         */
         connection.execute(
             "DELETE FROM rooms WHERE name = ? AND space = ?",
-            (self.name.clone(), self.space.to_string()),
+            (self.name.as_str(), self.space.to_string()),
         )?;
         Ok(())
     }
@@ -39,7 +39,7 @@ impl OctupleRoom for Room {
     fn insert(&self, connection: &Connection) -> Result<(), Error> {
         connection.execute(
             "INSERT INTO rooms (name, space) VALUES (?, ?)",
-            (self.name.clone(), self.space.to_string()),
+            (self.name.as_str(), self.space.to_string()),
         )?;
 
         Ok(())

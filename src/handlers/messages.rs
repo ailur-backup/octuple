@@ -36,7 +36,7 @@ pub async fn list(Json(request): Json<Request<Room>>) -> (StatusCode, Json<Respo
     }
     let connection = get_connection();
     let mut statement = connection.prepare("SELECT content, id, sender FROM messages WHERE room = ?;").expect("Failed to prepare statement");
-    let message_iter = statement.query_map([request.data.name.clone()], |row| {
+    let message_iter = statement.query_map([request.data.name.as_str()], |row| {
         Ok(Message {
             room: request.data.clone(),
             content: row.get(0)?,
@@ -52,10 +52,10 @@ pub async fn list(Json(request): Json<Request<Room>>) -> (StatusCode, Json<Respo
 }
 
 #[debug_handler]
-pub async fn send(Json(request): Json<Request<Message>>) -> (StatusCode, Json<Response<String>>) {
+pub async fn send(Json(request): Json<Request<Message>>) -> (StatusCode, Json<Response<Value>>) {
     let error = request.verify().await;
     if error.is_err() {
-        return new_response(String::from("Invalid request"), 400);
+        return new_response(Value::from("Invalid request"), 400);
     }
     let connection = get_connection();
     let id = Uuid::new_v4();
@@ -63,30 +63,32 @@ pub async fn send(Json(request): Json<Request<Message>>) -> (StatusCode, Json<Re
         "INSERT INTO messages (id, content, room, sender) VALUES (?, ?, ?, ?);",
         (
             id.as_bytes(),
-            request.data.content.clone(),
-            request.data.room.name.clone(),
+            request.data.content.as_str(),
+            request.data.room.name.as_str(),
             &request.certificate.components.user.to_string(),
         ),
     );
     if result.is_err() {
         let err = result.err().expect("Failed to get error");
         if err.sqlite_error_code().expect("Failed to get error code") == ConstraintViolation {
-            return new_response(String::from("Message already exists"), 409);
+            return new_response(Value::from("Message already exists"), 409);
         } else {
             panic!("Failed to insert message into database: {}", err);
         }
     }
-    if let Some(sender) = ROOM_CHANNELS.read().expect("Failed to get ROOM_CHANNELS").get(&request.data.room) {
-        sender.send(Message {
-            room: request.data.room.clone(),
-            content: request.data.content.clone(),
-            id: Some(id),
-            sender: Some(request.certificate.components.user.clone()),
-        }).expect("Failed to send message to room channel");
+    let message = Message {
+        room: request.data.room,
+        content: request.data.content,
+        id: Some(id),
+        sender: Some(request.certificate.components.user),
+    };
+    let response = new_response(json!(&message), 201);
+    if let Some(sender) = ROOM_CHANNELS.read().expect("Failed to get ROOM_CHANNELS").get(&message.room) {
+        sender.send(message).expect("Failed to send message to room channel");
     } else {
-        debug!("No channel found for room {}", request.data.room.name);
+        debug!("No channel found for room {}", message.room.name);
     }
-    new_response(String::from("Message sent"), 201)
+    response
 }
 
 #[debug_handler]
@@ -137,17 +139,22 @@ pub async fn listen(ws: WebSocketUpgrade) -> impl IntoResponse {
         if error.is_err() {
             return;
         }
+        let room_name = request.data.name.clone();
+        let mut receiver;
         if !ROOM_CHANNELS.read().expect("Failed to get ROOM_CHANNELS").contains_key(&request.data) {
+            let channel = tokio::sync::broadcast::channel(100);
+            receiver = channel.1;
             ROOM_CHANNELS.write().expect("Failed to get ROOM_CHANNELS").insert(
-                request.data.clone(),
-                tokio::sync::broadcast::channel(100).0,
+                request.data,
+                channel.0,
             );
+        } else {
+            receiver = ROOM_CHANNELS.read().expect("Failed to get ROOM_CHANNELS").get(&request.data).unwrap().subscribe()
         }
-        let mut receiver = ROOM_CHANNELS.read().expect("Failed to get ROOM_CHANNELS").get(&request.data).unwrap().subscribe();
         loop {
             select! {
                 message = receiver.recv() => {
-                    debug!("Broadcasting message to room {}", request.data.name);
+                    debug!("Broadcasting message to room {}", room_name);
                     socket.send(
                         ws::Message::Text(Utf8Bytes::from(
                             serde_json::to_string(
@@ -159,14 +166,14 @@ pub async fn listen(ws: WebSocketUpgrade) -> impl IntoResponse {
                 result = socket.recv() => {
                     match result {
                         Some(Ok(ws::Message::Close(_))) => {
-                            debug!("WebSocket connection closed for room {}", request.data.name);
+                            debug!("WebSocket connection closed for room {}", room_name);
                             return;
                         }
                         Some(Ok(ws::Message::Ping(_))) => {
                             socket.send(Pong(Bytes::from("pong"))).await.expect("Failed to send pong");
                         }
                         None => {
-                            debug!("WebSocket connection closed unexpectedly for room {}", request.data.name);
+                            debug!("WebSocket connection closed unexpectedly for room {}", room_name);
                             return;
                         }
                         Some(Err(e)) => {

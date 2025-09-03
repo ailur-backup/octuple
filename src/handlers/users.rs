@@ -3,13 +3,13 @@ use crate::database::get_connection;
 use crate::handlers::{new_response, OctupleRequest};
 use crate::handlers::server::OctupleServer;
 use crate::key::SIGNING_KEY;
-use axum::response::IntoResponse;
 use axum::{Json, Router};
 use ed25519_dalek::ed25519::SignatureBytes;
 use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 use libcharm::endpoints::user::{Create, Login};
 use libcharm::request::{BlankRequest, Request, Response};
 use libcharm::user::{Certificate, CertificateComponents, User};
+use serde_json::{json, Value};
 use signature::{Signer, Verifier};
 use axum::http::StatusCode;
 use axum::routing::post;
@@ -90,7 +90,7 @@ pub async fn delete(Json(request): Json<Request<BlankRequest>>) -> (StatusCode, 
     new_response(String::from("User deleted"), 200)
 }
 
-pub async fn login(Json(login): Json<Login>) -> axum::response::Response {
+pub async fn login(Json(login): Json<Login>) -> (StatusCode, Json<Response<Value>>) {
     let connection = get_connection();
     let query_result = connection.query_row(
         "SELECT key FROM users WHERE username = ?",
@@ -100,7 +100,7 @@ pub async fn login(Json(login): Json<Login>) -> axum::response::Response {
     if query_result.is_err() {
         let err = query_result.err().expect("Failed to get error");
         if err == QueryReturnedNoRows {
-            return new_response("User not found", 404).into_response()
+            return new_response(Value::from("User not found"), 404)
         } else {
             panic!("Failed to get user from database: {}", err)
         }
@@ -108,7 +108,7 @@ pub async fn login(Json(login): Json<Login>) -> axum::response::Response {
     let key: [u8; 32] = query_result.expect("Failed to get key");
     let public_key = VerifyingKey::from_bytes(&key).expect("Failed to convert key");
     if public_key.verify(&[login.data], &Signature::from_bytes(&login.signature)).is_err() {
-        return new_response("Username or password incorrect", 401).into_response()
+        return new_response(Value::from("Username or password incorrect"), 401)
     }
     let components = CertificateComponents {
         key,
@@ -120,8 +120,11 @@ pub async fn login(Json(login): Json<Login>) -> axum::response::Response {
         },
     };
     let signature = components.sign(SIGNING_KEY.get().expect("Failed to get key"));
-    Json::from(Certificate {
-        components,
-        signature,
-    }).into_response()
+    new_response(
+        json!(Certificate {
+            components,
+            signature,
+        }),
+        200
+    )
 }
